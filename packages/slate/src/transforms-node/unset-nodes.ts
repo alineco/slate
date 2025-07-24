@@ -13,7 +13,7 @@ export const unsetNodes: NodeTransforms['unsetNodes'] = (
   const obj: any = {}
 
   for (const key of props) {
-    obj[key] = null
+    obj[key] = undefined
   }
 
   Transforms.setNodes(editor, obj, options)

@@ -1,4 +1,4 @@
-# Using Commands
+# Executing Commands
 
 Up until now, everything we've learned has been about how to write one-off logic for your specific Slate editor. But one of the most powerful things about Slate is that it lets you model your specific rich text "domain" however you'd like, and write less one-off code.
 
@@ -11,14 +11,15 @@ Let's see how this works.
 We'll start with our app from earlier:
 
 ```jsx
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   const renderElement = useCallback(props => {
     switch (props.element.type) {
@@ -34,7 +35,7 @@ const App = () => {
   }, [])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         renderElement={renderElement}
         renderLeaf={renderLeaf}
@@ -52,18 +53,16 @@ const App = () => {
               Transforms.setNodes(
                 editor,
                 { type: match ? null : 'code' },
-                { match: n => Editor.isBlock(editor, n) }
+                {
+                  match: n => Element.isElement(n) && Editor.isBlock(editor, n),
+                }
               )
               break
             }
 
             case 'b': {
               event.preventDefault()
-              Transforms.setNodes(
-                editor,
-                { bold: true },
-                { match: n => Text.isText(n), split: true }
-              )
+              Editor.addMark(editor, 'bold', true)
               break
             }
           }
@@ -82,12 +81,8 @@ We can instead implement these domain-specific concepts by creating custom helpe
 // Define our own custom set of helpers.
 const CustomEditor = {
   isBoldMarkActive(editor) {
-    const [match] = Editor.nodes(editor, {
-      match: n => n.bold === true,
-      universal: true,
-    })
-
-    return !!match
+    const marks = Editor.marks(editor)
+    return marks ? marks.bold === true : false
   },
 
   isCodeBlockActive(editor) {
@@ -100,11 +95,11 @@ const CustomEditor = {
 
   toggleBoldMark(editor) {
     const isActive = CustomEditor.isBoldMarkActive(editor)
-    Transforms.setNodes(
-      editor,
-      { bold: isActive ? null : true },
-      { match: n => Text.isText(n), split: true }
-    )
+    if (isActive) {
+      Editor.removeMark(editor, 'bold')
+    } else {
+      Editor.addMark(editor, 'bold', true)
+    }
   },
 
   toggleCodeBlock(editor) {
@@ -112,19 +107,20 @@ const CustomEditor = {
     Transforms.setNodes(
       editor,
       { type: isActive ? null : 'code' },
-      { match: n => Editor.isBlock(editor, n) }
+      { match: n => Element.isElement(n) && Editor.isBlock(editor, n) }
     )
   },
 }
 
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   const renderElement = useCallback(props => {
     switch (props.element.type) {
@@ -140,7 +136,7 @@ const App = () => {
   }, [])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         renderElement={renderElement}
         renderLeaf={renderLeaf}
@@ -173,14 +169,15 @@ const App = () => {
 Now our commands are clearly defined and you can invoke them from anywhere we have access to our `editor` object. For example, from hypothetical toolbar buttons:
 
 ```jsx
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   const renderElement = useCallback(props => {
     switch (props.element.type) {
@@ -197,7 +194,7 @@ const App = () => {
 
   return (
     // Add a toolbar with buttons that call the same methods.
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <div>
         <button
           onMouseDown={event => {

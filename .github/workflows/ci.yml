@@ -1,13 +1,44 @@
-name: actions
-on: [push, pull_request]
+name: CI
+
+on:
+  - push
+  - pull_request
+
+permissions:
+  contents: read # to fetch code (actions/checkout)
+
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    name: ${{ matrix.command }}
+    # Pin the version to avoid dependency installation issues
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        command:
+          - 'test'
+          - 'test:integration'
+          - 'lint:eslint'
+          - 'lint:prettier'
+          - 'lint:typescript'
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup node
+        uses: actions/setup-node@v4
         with:
-          node-version: 12
-      - run: yarn && yarn build:rollup && yarn test && yarn lint
+          node-version: 22.x
+          cache: yarn
+
+      - name: Run ${{ matrix.command }}
+        run: yarn && yarn build && yarn ${{ matrix.command }}
         env:
           CI: true
+
+      - name: Upload Playwright test results
+        if: ${{ !cancelled() && matrix.command == 'test:integration' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results
+          retention-days: 30

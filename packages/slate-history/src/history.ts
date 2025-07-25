@@ -1,5 +1,9 @@
-import isPlainObject from 'is-plain-object'
-import { Operation } from 'slate'
+import { Operation, Range, isObject } from 'slate'
+
+interface Batch {
+  operations: Operation[]
+  selectionBefore: Range | null
+}
 
 /**
  * `History` objects hold all of the operations that are applied to a value, so
@@ -7,10 +11,11 @@ import { Operation } from 'slate'
  */
 
 export interface History {
-  redos: Operation[][]
-  undos: Operation[][]
+  redos: Batch[]
+  undos: Batch[]
 }
 
+// eslint-disable-next-line no-redeclare
 export const History = {
   /**
    * Check if a value is a `History` object.
@@ -18,11 +23,13 @@ export const History = {
 
   isHistory(value: any): value is History {
     return (
-      isPlainObject(value) &&
+      isObject(value) &&
       Array.isArray(value.redos) &&
       Array.isArray(value.undos) &&
-      (value.redos.length === 0 || Operation.isOperationList(value.redos[0])) &&
-      (value.undos.length === 0 || Operation.isOperationList(value.undos[0]))
+      (value.redos.length === 0 ||
+        Operation.isOperationList(value.redos[0].operations)) &&
+      (value.undos.length === 0 ||
+        Operation.isOperationList(value.undos[0].operations))
     )
   },
 }

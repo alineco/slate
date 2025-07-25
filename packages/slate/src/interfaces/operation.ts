@@ -1,5 +1,4 @@
-import { ExtendedType, Node, Path, Range } from '..'
-import isPlainObject from 'is-plain-object'
+import { ExtendedType, Node, Path, Range, isObject } from '..'
 
 export type BaseInsertNodeOperation = {
   type: 'insert_node'
@@ -135,32 +134,50 @@ export type TextOperation = InsertTextOperation | RemoveTextOperation
  * collaboration, and other features.
  */
 
-export type Operation = NodeOperation | SelectionOperation | TextOperation
+export type BaseOperation = NodeOperation | SelectionOperation | TextOperation
+export type Operation = ExtendedType<'Operation', BaseOperation>
 
 export interface OperationInterface {
+  /**
+   * Check if a value is a `NodeOperation` object.
+   */
   isNodeOperation: (value: any) => value is NodeOperation
+
+  /**
+   * Check if a value is an `Operation` object.
+   */
   isOperation: (value: any) => value is Operation
+
+  /**
+   * Check if a value is a list of `Operation` objects.
+   */
   isOperationList: (value: any) => value is Operation[]
+
+  /**
+   * Check if a value is a `SelectionOperation` object.
+   */
   isSelectionOperation: (value: any) => value is SelectionOperation
+
+  /**
+   * Check if a value is a `TextOperation` object.
+   */
   isTextOperation: (value: any) => value is TextOperation
+
+  /**
+   * Invert an operation, returning a new operation that will exactly undo the
+   * original when applied.
+   */
   inverse: (op: Operation) => Operation
 }
 
+// eslint-disable-next-line no-redeclare
 export const Operation: OperationInterface = {
-  /**
-   * Check of a value is a `NodeOperation` object.
-   */
-
   isNodeOperation(value: any): value is NodeOperation {
     return Operation.isOperation(value) && value.type.endsWith('_node')
   },
 
-  /**
-   * Check of a value is an `Operation` object.
-   */
-
   isOperation(value: any): value is Operation {
-    if (!isPlainObject(value)) {
+    if (!isObject(value)) {
       return false
     }
 
@@ -177,7 +194,7 @@ export const Operation: OperationInterface = {
         return (
           typeof value.position === 'number' &&
           Path.isPath(value.path) &&
-          isPlainObject(value.properties)
+          isObject(value.properties)
         )
       case 'move_node':
         return Path.isPath(value.path) && Path.isPath(value.newPath)
@@ -192,58 +209,39 @@ export const Operation: OperationInterface = {
       case 'set_node':
         return (
           Path.isPath(value.path) &&
-          isPlainObject(value.properties) &&
-          isPlainObject(value.newProperties)
+          isObject(value.properties) &&
+          isObject(value.newProperties)
         )
       case 'set_selection':
         return (
           (value.properties === null && Range.isRange(value.newProperties)) ||
           (value.newProperties === null && Range.isRange(value.properties)) ||
-          (isPlainObject(value.properties) &&
-            isPlainObject(value.newProperties))
+          (isObject(value.properties) && isObject(value.newProperties))
         )
       case 'split_node':
         return (
           Path.isPath(value.path) &&
           typeof value.position === 'number' &&
-          isPlainObject(value.properties)
+          isObject(value.properties)
         )
       default:
         return false
     }
   },
 
-  /**
-   * Check if a value is a list of `Operation` objects.
-   */
-
   isOperationList(value: any): value is Operation[] {
     return (
-      Array.isArray(value) &&
-      (value.length === 0 || Operation.isOperation(value[0]))
+      Array.isArray(value) && value.every(val => Operation.isOperation(val))
     )
   },
-
-  /**
-   * Check of a value is a `SelectionOperation` object.
-   */
 
   isSelectionOperation(value: any): value is SelectionOperation {
     return Operation.isOperation(value) && value.type.endsWith('_selection')
   },
 
-  /**
-   * Check of a value is a `TextOperation` object.
-   */
-
   isTextOperation(value: any): value is TextOperation {
     return Operation.isOperation(value) && value.type.endsWith('_text')
   },
-
-  /**
-   * Invert an operation, returning a new operation that will exactly undo the
-   * original when applied.
-   */
 
   inverse(op: Operation): Operation {
     switch (op.type) {

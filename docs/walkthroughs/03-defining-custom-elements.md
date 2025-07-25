@@ -1,4 +1,4 @@
-# Defining Custom Block Nodes
+# Defining Custom Elements
 
 In our previous example, we started with a paragraph, but we never actually told Slate anything about the `paragraph` block type. We just let it use its internal default renderer, which uses a plain old `<div>`.
 
@@ -7,17 +7,18 @@ But that's not all you can do. Slate lets you define any type of custom blocks y
 We'll show you how. Let's start with our app from earlier:
 
 ```jsx
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         onKeyDown={event => {
           if (event.key === '&') {
@@ -65,14 +66,15 @@ const DefaultElement = props => {
 Now, let's add that renderer to our `Editor`:
 
 ```jsx
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   // Define a rendering function based on the element passed to `props`. We use
   // `useCallback` here to memoize the function for subsequent renders.
@@ -86,7 +88,7 @@ const App = () => {
   }, [])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         // Pass in the `renderElement` function.
         renderElement={renderElement}
@@ -118,16 +120,17 @@ Okay, but now we'll need a way for the user to actually turn a block into a code
 
 ```jsx
 // Import the `Editor` and `Transforms` helpers from Slate.
-import { Editor, Transforms } from 'slate'
+import { Editor, Transforms, Element } from 'slate'
+
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
 
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   const renderElement = useCallback(props => {
     switch (props.element.type) {
@@ -139,7 +142,7 @@ const App = () => {
   }, [])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         renderElement={renderElement}
         onKeyDown={event => {
@@ -150,7 +153,7 @@ const App = () => {
             Transforms.setNodes(
               editor,
               { type: 'code' },
-              { match: n => Editor.isBlock(editor, n) }
+              { match: n => Element.isElement(n) && Editor.isBlock(editor, n) }
             )
           }
         }}
@@ -177,14 +180,15 @@ Now, if you press `` Ctrl-` `` the block your cursor is in should turn into a co
 But we forgot one thing. When you hit `` Ctrl-` `` again, it should change the code block back into a paragraph. To do that, we'll need to add a bit of logic to change the type we set based on whether any of the currently selected blocks are already a code block:
 
 ```jsx
+const initialValue = [
+  {
+    type: 'paragraph',
+    children: [{ text: 'A line of text in a paragraph.' }],
+  },
+]
+
 const App = () => {
-  const editor = useMemo(() => withReact(createEditor()), [])
-  const [value, setValue] = useState([
-    {
-      type: 'paragraph',
-      children: [{ text: 'A line of text in a paragraph.' }],
-    },
-  ])
+  const [editor] = useState(() => withReact(createEditor()))
 
   const renderElement = useCallback(props => {
     switch (props.element.type) {
@@ -196,7 +200,7 @@ const App = () => {
   }, [])
 
   return (
-    <Slate editor={editor} value={value} onChange={value => setValue(value)}>
+    <Slate editor={editor} initialValue={initialValue}>
       <Editable
         renderElement={renderElement}
         onKeyDown={event => {
@@ -210,7 +214,7 @@ const App = () => {
             Transforms.setNodes(
               editor,
               { type: match ? 'paragraph' : 'code' },
-              { match: n => Editor.isBlock(editor, n) }
+              { match: n => Element.isElement(n) && Editor.isBlock(editor, n) }
             )
           }
         }}

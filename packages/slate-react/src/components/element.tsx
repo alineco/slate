@@ -1,57 +1,83 @@
-import React, { useRef } from 'react'
 import getDirection from 'direction'
-import { Editor, Node, Range, NodeEntry, Element as SlateElement } from 'slate'
+import React, { useCallback } from 'react'
+import { JSX } from 'react'
+import { Editor, Element as SlateElement, Node, DecoratedRange } from 'slate'
+import { ReactEditor, useReadOnly, useSlateStatic } from '..'
+import useChildren from '../hooks/use-children'
+import { isElementDecorationsEqual } from 'slate-dom'
+import {
+  EDITOR_TO_KEY_TO_ELEMENT,
+  ELEMENT_TO_NODE,
+  NODE_TO_ELEMENT,
+  NODE_TO_INDEX,
+  NODE_TO_PARENT,
+} from 'slate-dom'
+import {
+  RenderChunkProps,
+  RenderElementProps,
+  RenderLeafProps,
+  RenderPlaceholderProps,
+  RenderTextProps,
+} from './editable'
 
 import Text from './text'
-import Children from './children'
-import { ReactEditor, useSlateStatic, useReadOnly } from '..'
-import { SelectedContext } from '../hooks/use-selected'
-import { useIsomorphicLayoutEffect } from '../hooks/use-isomorphic-layout-effect'
-import {
-  NODE_TO_ELEMENT,
-  ELEMENT_TO_NODE,
-  NODE_TO_PARENT,
-  NODE_TO_INDEX,
-  KEY_TO_ELEMENT,
-} from '../utils/weak-maps'
-import { RenderElementProps, RenderLeafProps } from './editable'
+import { useDecorations } from '../hooks/use-decorations'
+
+const defaultRenderElement = (props: RenderElementProps) => (
+  <DefaultElement {...props} />
+)
 
 /**
  * Element.
  */
 
 const Element = (props: {
-  decorate: (entry: NodeEntry) => Range[]
-  decorations: Range[]
+  decorations: DecoratedRange[]
   element: SlateElement
   renderElement?: (props: RenderElementProps) => JSX.Element
+  renderChunk?: (props: RenderChunkProps) => JSX.Element
+  renderPlaceholder: (props: RenderPlaceholderProps) => JSX.Element
+  renderText?: (props: RenderTextProps) => JSX.Element
   renderLeaf?: (props: RenderLeafProps) => JSX.Element
-  selection: Range | null
 }) => {
   const {
-    decorate,
-    decorations,
+    decorations: parentDecorations,
     element,
-    renderElement = (p: RenderElementProps) => <DefaultElement {...p} />,
+    renderElement = defaultRenderElement,
+    renderChunk,
+    renderPlaceholder,
     renderLeaf,
-    selection,
+    renderText,
   } = props
-  const ref = useRef<HTMLElement>(null)
   const editor = useSlateStatic()
   const readOnly = useReadOnly()
   const isInline = editor.isInline(element)
+  const decorations = useDecorations(element, parentDecorations)
   const key = ReactEditor.findKey(editor, element)
-
-  let children: JSX.Element | null = (
-    <Children
-      decorate={decorate}
-      decorations={decorations}
-      node={element}
-      renderElement={renderElement}
-      renderLeaf={renderLeaf}
-      selection={selection}
-    />
+  const ref = useCallback(
+    (ref: HTMLElement | null) => {
+      // Update element-related weak maps with the DOM element ref.
+      const KEY_TO_ELEMENT = EDITOR_TO_KEY_TO_ELEMENT.get(editor)
+      if (ref) {
+        KEY_TO_ELEMENT?.set(key, ref)
+        NODE_TO_ELEMENT.set(element, ref)
+        ELEMENT_TO_NODE.set(ref, element)
+      } else {
+        KEY_TO_ELEMENT?.delete(key)
+        NODE_TO_ELEMENT.delete(element)
+      }
+    },
+    [editor, key, element]
   )
+  let children: React.ReactNode = useChildren({
+    decorations,
+    node: element,
+    renderElement,
+    renderChunk,
+    renderPlaceholder,
+    renderLeaf,
+    renderText,
+  })
 
   // Attributes that the developer must mix into the element in their
   // custom node renderer component.
@@ -93,7 +119,7 @@ const Element = (props: {
     const Tag = isInline ? 'span' : 'div'
     const [[text]] = Node.texts(element)
 
-    children = readOnly ? null : (
+    children = (
       <Tag
         data-slate-spacer
         style={{
@@ -103,7 +129,13 @@ const Element = (props: {
           position: 'absolute',
         }}
       >
-        <Text decorations={[]} isLast={false} parent={element} text={text} />
+        <Text
+          renderPlaceholder={renderPlaceholder}
+          decorations={[]}
+          isLast={false}
+          parent={element}
+          text={text}
+        />
       </Tag>
     )
 
@@ -111,36 +143,18 @@ const Element = (props: {
     NODE_TO_PARENT.set(text, element)
   }
 
-  // Update element-related weak maps with the DOM element ref.
-  useIsomorphicLayoutEffect(() => {
-    if (ref.current) {
-      KEY_TO_ELEMENT.set(key, ref.current)
-      NODE_TO_ELEMENT.set(element, ref.current)
-      ELEMENT_TO_NODE.set(ref.current, element)
-    } else {
-      KEY_TO_ELEMENT.delete(key)
-      NODE_TO_ELEMENT.delete(element)
-    }
-  })
-
-  return (
-    <SelectedContext.Provider value={!!selection}>
-      {renderElement({ attributes, children, element })}
-    </SelectedContext.Provider>
-  )
+  return renderElement({ attributes, children, element })
 }
 
 const MemoizedElement = React.memo(Element, (prev, next) => {
   return (
-    prev.decorate === next.decorate &&
     prev.element === next.element &&
     prev.renderElement === next.renderElement &&
+    prev.renderChunk === next.renderChunk &&
+    prev.renderText === next.renderText &&
     prev.renderLeaf === next.renderLeaf &&
-    isRangeListEqual(prev.decorations, next.decorations) &&
-    (prev.selection === next.selection ||
-      (!!prev.selection &&
-        !!next.selection &&
-        Range.equals(prev.selection, next.selection)))
+    prev.renderPlaceholder === next.renderPlaceholder &&
+    isElementDecorationsEqual(prev.decorations, next.decorations)
   )
 })
 
@@ -157,31 +171,6 @@ export const DefaultElement = (props: RenderElementProps) => {
       {children}
     </Tag>
   )
-}
-
-/**
- * Check if a list of ranges is equal to another.
- *
- * PERF: this requires the two lists to also have the ranges inside them in the
- * same order, but this is an okay constraint for us since decorations are
- * kept in order, and the odd case where they aren't is okay to re-render for.
- */
-
-const isRangeListEqual = (list: Range[], another: Range[]): boolean => {
-  if (list.length !== another.length) {
-    return false
-  }
-
-  for (let i = 0; i < list.length; i++) {
-    const range = list[i]
-    const other = another[i]
-
-    if (!Range.equals(range, other)) {
-      return false
-    }
-  }
-
-  return true
 }
 
 export default MemoizedElement

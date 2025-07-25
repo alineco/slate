@@ -2,13 +2,16 @@
 import { Transforms } from 'slate'
 import { jsx } from '../../..'
 
-export const run = editor => {
+export const run = (editor, options = {}) => {
   Transforms.insertFragment(
     editor,
-    <block>
-      <block>3</block>
-      <block>4</block>
-    </block>
+    <fragment>
+      <block>
+        <block>3</block>
+        <block>4</block>
+      </block>
+    </fragment>,
+    options
   )
 }
 export const input = (
@@ -32,4 +35,3 @@ export const output = (
     </block>
   </editor>
 )
-export const skip = true

@@ -1,5 +1,6 @@
 /** @jsx jsx */
 import { jsx } from '../..'
+import { cloneDeep } from 'lodash'
 
 const fragment = (
   <block type="d">
@@ -33,5 +34,4 @@ export const input = (
     </block>
   </editor>
 )
-export const output = input
-export const skip = true
+export const output = cloneDeep(input)

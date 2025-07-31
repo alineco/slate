@@ -19,6 +19,7 @@ export function* positions(
     unit = 'offset',
     reverse = false,
     voids = false,
+    skip,
   } = options
 
   if (!at) {
@@ -62,6 +63,7 @@ export function* positions(
     at,
     reverse,
     voids,
+    match: skip && ((n, p) => !skip(n, p)),
   })) {
     /*
      * ELEMENT NODE - Yield position(s) for voids, collect blockText for blocks

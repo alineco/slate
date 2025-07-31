@@ -289,6 +289,9 @@ export interface EditorPositionsOptions {
   unit?: TextUnitAdjustment
   reverse?: boolean
   voids?: boolean
+  // Completely ignore certain inline void elements, so that points aren't
+  // returned inside them and unit: 'word' skips past them.t
+  skip?: NodeMatch<Node>
 }
 
 export interface EditorPreviousOptions<T extends Node> {

@@ -52,6 +52,7 @@ export function* positions(
   let distance = 0 // Distance for leafText to catch up to blockText.
   let leafTextRemaining = 0
   let leafTextOffset = 0
+  const skippedPaths: Path[] = []
 
   // Iterate through all nodes in range, grabbing entire textual content
   // of block nodes in blockText, and text nodes in leafText.
@@ -65,19 +66,35 @@ export function* positions(
     voids,
     match: skip && ((n, p) => !skip(n, p)),
   })) {
+    // If the node is inside a skipped ancestor, do not return any points, but
+    // still process its content so that the iteration state remains correct.
+    const hasSkippedAncestor = skippedPaths.some(p => Path.isAncestor(p, path))
+
+    function* maybeYield(point: Point) {
+      if (!hasSkippedAncestor) {
+        yield point
+      }
+    }
+
     /*
      * ELEMENT NODE - Yield position(s) for voids, collect blockText for blocks
      */
     if (Element.isElement(node)) {
       if (!editor.isSelectable(node)) {
         /**
-         * If the node is not selectable, skip it
+         * If the node is not selectable, skip it and its descendants
          */
+        skippedPaths.push(path)
         if (reverse) {
-          yield Editor.end(editor, Path.previous(path))
+          if (Path.hasPrevious(path)) {
+            yield* maybeYield(Editor.end(editor, Path.previous(path)))
+          }
           continue
         } else {
-          yield Editor.start(editor, Path.next(path))
+          const nextPath = Path.next(path)
+          if (Editor.hasPath(editor, nextPath)) {
+            yield* maybeYield(Editor.start(editor, Path.next(path)))
+          }
           continue
         }
       }
@@ -86,7 +103,7 @@ export function* positions(
       // yield their first point. If the `voids` option is set to true,
       // then we will iterate over their content.
       if (!voids && (editor.isVoid(node) || editor.isElementReadOnly(node))) {
-        yield Editor.start(editor, path)
+        yield* maybeYield(Editor.start(editor, path))
         continue
       }
 
@@ -145,7 +162,7 @@ export function* positions(
 
       // Yield position at the start of node (potentially).
       if (isFirst || isNewBlock || unit === 'offset') {
-        yield { path, offset: leafTextOffset }
+        yield* maybeYield({ path, offset: leafTextOffset })
         isNewBlock = false
       }
 
@@ -180,7 +197,7 @@ export function* positions(
         // to catch up with `blockText`, so we can reset `distance`
         // and yield this position in this node.
         distance = 0
-        yield { path, offset: leafTextOffset }
+        yield* maybeYield({ path, offset: leafTextOffset })
       }
     }
   }

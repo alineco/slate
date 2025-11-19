@@ -1,5 +1,17 @@
 # slate-dom
 
+## 0.119.0
+
+### Minor Changes
+
+- [#5963](https://github.com/ianstormtaylor/slate/pull/5963) [`33e74a82`](https://github.com/ianstormtaylor/slate/commit/33e74a822b82c4b9ce1444f456c5343970441ccb) Thanks [@iperzic](https://github.com/iperzic)! - Fixes an editor crash that happens when editor is placed inside Shadow DOM and the user is typing on Android
+
+## 0.118.1
+
+### Patch Changes
+
+- [#5936](https://github.com/ianstormtaylor/slate/pull/5936) [`05583457`](https://github.com/ianstormtaylor/slate/commit/0558345703e3451f82ffd7eeb15dee51102b1209) Thanks [@delijah](https://github.com/delijah)! - Search backward and forward for leaf nodes in non contenteditable elements inside `toSlatePoint`
+
 ## 0.117.4
 
 ### Patch Changes

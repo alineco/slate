@@ -310,8 +310,7 @@ export const GeneralTransforms: GeneralTransforms = {
 
             const value = newProperties[<keyof Node>key]
 
-            // NOTE: https://github.com/ianstormtaylor/slate/pull/4042
-            if (value === undefined) {
+            if (value == null) {
               delete newNode[<keyof Node>key]
             } else {
               newNode[<keyof Node>key] = value
@@ -357,8 +356,7 @@ export const GeneralTransforms: GeneralTransforms = {
         for (const key in newProperties) {
           const value = newProperties[<keyof Range>key]
 
-          // NOTE: https://github.com/ianstormtaylor/slate/pull/4042
-          if (value === undefined) {
+          if (value == null) {
             if (key === 'anchor' || key === 'focus') {
               throw new Error(`Cannot remove the "${key}" selection property`)
             }
